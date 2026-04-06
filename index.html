@@ -62,8 +62,6 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
 .emp-name-wrap{flex:1;}
 .emp-name{font-size:15px;font-weight:500;width:100%;border:none;background:transparent;font-family:var(--font);color:var(--tx);outline:none;padding:0;}
 .emp-name::placeholder{color:var(--tx3);}
-.emp-del{background:none;border:none;color:var(--tx3);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:8px;line-height:1;}
-.emp-del:active{background:rgba(0,0,0,0.07);}
 
 /* Metrics split area */
 .metrics-wrap{display:flex;border-top:1px solid rgba(0,0,0,0.06);}
@@ -361,6 +359,8 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
   function renderEmps() {
     const b = BR.find(x=>x.id===sel);
     const emps = data[sel]||[];
+    
+    // นำส่วนของ <button class="emp-del"> ออก เพื่อไม่ให้ผู้ใช้ลบแถวทิ้ง
     document.getElementById('emp-list').innerHTML = emps.map(e=>`
       <div class="emp-card">
         <div class="emp-top">
@@ -369,7 +369,6 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
               autocomplete="off" onfocus="this.select()"
               onchange="updateEmpName('${e.id}', this.value)">
           </div>
-          <button class="emp-del" onclick="delEmp('${e.id}')">×</button>
         </div>
         <div class="metrics-wrap">
           <div class="metric-col">
@@ -404,19 +403,12 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
   
   window.pickBranch = function(id) { sel = id; renderBar(); renderEmps(); }
   
-  window.addEmp = async function(name='', calls=0, apps=0) {
+  // ปรับให้ตอนเพิ่มพนักงาน มีชื่อตั้งต้นเสมอ ไม่เป็นค่าว่าง
+  window.addEmp = async function(name='พนักงานใหม่', calls=0, apps=0) {
     const newId = Date.now() + Math.round(Math.random() * 1000);
     await persistTransaction(prev => {
       if(!prev[sel]) prev[sel] = [];
       prev[sel].push({id: newId, name, calls, apps});
-      return prev;
-    });
-  }
-
-  window.delEmp = async function(id) {
-    if(!confirm("ยืนยันการลบพนักงาน?")) return;
-    await persistTransaction(prev => {
-      if(prev[sel]) prev[sel] = prev[sel].filter(e => String(e.id) !== String(id));
       return prev;
     });
   }
@@ -441,11 +433,21 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
     });
   }
 
+  // เพิ่มเงื่อนไขตรวจสอบการบันทึกชื่อว่าง
   window.updateEmpName = async function(id, value) {
+    const trimmedName = value.trim();
+    
+    // ป้องกันการแก้ชื่อให้ว่างเปล่า
+    if (trimmedName === '') {
+      toastMsg("ไม่สามารถลบชื่อให้เป็นค่าว่างได้");
+      renderEmps(); // โหลดข้อมูลกลับเป็นค่าก่อนหน้า
+      return;
+    }
+
     await persistTransaction(prev => {
       const emp = (prev[sel]||[]).find(e => String(e.id) === String(id));
       if(emp) {
-        emp.name = value;
+        emp.name = trimmedName;
       }
       return prev;
     });
