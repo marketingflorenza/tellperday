@@ -107,6 +107,37 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
 .btn-export:active{background:var(--bg);}
 .sum-empty{text-align:center;color:var(--tx3);font-size:14px;padding:40px 0;}
 
+/* Dashboard Action Buttons */
+.dash-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+.btn-action {
+  flex: 1;
+  padding: 14px;
+  border-radius: 14px;
+  text-align: center;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 14px;
+  transition: all .15s;
+  border: none;
+}
+.btn-export-action {
+  background: var(--sur);
+  border: 1px solid var(--bd);
+  color: var(--tx);
+}
+.btn-export-action:active { background: var(--bg); }
+.btn-line {
+  background: #00B900;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 185, 0, 0.3);
+}
+.btn-line:active { background: #009900; }
+
 /* Toast & Loading */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:#1a1a18;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;opacity:0;transition:all .2s;z-index:200;pointer-events:none;white-space:nowrap;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
@@ -153,7 +184,11 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
         <span style="font-size:12px;font-weight:400;">สายที่โทร / นัด</span>
       </div>
       <div id="dash-list"></div>
-      <button class="btn-export" onclick="exportCSV()">ดาวน์โหลดไฟล์ CSV</button>
+      
+      <div class="dash-actions">
+        <button class="btn-action btn-export-action" onclick="exportCSV()">ดาวน์โหลด CSV</button>
+        <button class="btn-action btn-line" onclick="shareToLine()">ส่งผ่าน LINE</button>
+      </div>
     </div>
   </div>
 </div>
@@ -177,7 +212,6 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  // เปลี่ยนชื่อฝ่ายตามรีเควสต์
   const BR = [
     {id:'FRC',label:'FRC',cls:'frc',color:'#1D9E75',dark:'#085041',light:'#E1F5EE'},
     {id:'FRB',label:'FRB',cls:'frb',color:'#378ADD',dark:'#0C447C',light:'#E6F1FB'},
@@ -192,8 +226,8 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
   let dashSel = 'ALL';
   let dashStartDate = '';
   let dashEndDate = '';
-  let dashAggregatedData = []; // เก็บข้อมูลที่รวมยอดแล้ว
-  let isBossAuthenticated = false; // ตัวแปรเช็คการล็อกอิน
+  let dashAggregatedData = [];
+  let isBossAuthenticated = false;
   let saveTimeout = null;
 
   const getTodayStr = () => {
@@ -380,7 +414,6 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
 
   // --- Dashboard ---
   window.openDashboard = async function() {
-    // ถามรหัสผ่านครั้งแรกครั้งเดียว
     if (!isBossAuthenticated) {
       const pwd = prompt("กรุณาใส่รหัสผ่านเพื่อเข้าสู่โหมดผู้บริหาร:");
       if (pwd !== "boss") {
@@ -393,7 +426,6 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
     document.getElementById('tracker-view').style.display = 'none';
     document.getElementById('dashboard-view').style.display = 'flex';
     
-    // ตั้งค่าเริ่มต้นเป็นวันที่ที่เลือกอยู่
     dashStartDate = currentDate;
     dashEndDate = currentDate;
     document.getElementById('dash-start').value = dashStartDate;
@@ -431,7 +463,6 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
     `).join('');
   }
 
-  // โหลดและรวมข้อมูลสำหรับ Dashboard
   async function loadDashboardData() {
     document.getElementById('dash-list').innerHTML = `<div class="loading">กำลังรวมข้อมูล...</div>`;
     document.getElementById('dash-stats').innerHTML = '';
@@ -443,14 +474,13 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
       );
       const querySnapshot = await getDocs(q);
 
-      const aggregated = {}; // เก็บรวมยอดรายคน (key: branch_name)
+      const aggregated = {};
 
       querySnapshot.forEach((docSnap) => {
         const dayData = docSnap.data();
         BR.forEach(b => {
           if (dayData[b.id]) {
             dayData[b.id].forEach(emp => {
-              // ไม่เอาคนที่ไม่มีข้อมูลเลย
               if (!emp.name && (!emp.calls || emp.calls === 0) && (!emp.apps || emp.apps === 0)) return;
               
               const safeName = emp.name || '(ไม่ระบุชื่อ)';
@@ -476,7 +506,6 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
   }
 
   function renderDashContent() {
-    // กรองตามสาขาที่เลือก
     let emps = [];
     if (dashSel === 'ALL') {
       emps = [...dashAggregatedData];
@@ -484,7 +513,6 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
       emps = dashAggregatedData.filter(e => e.branch.id === dashSel);
     }
     
-    // เรียงจากมากไปน้อย
     emps.sort((a,b) => b.calls - a.calls);
 
     const tc = emps.reduce((s, e) => s + e.calls, 0);
@@ -520,7 +548,6 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
       `;
     }).join('');
 
-    // แถบสรุปรวมทั้งหมดด้านล่างสุด
     listHTML += `
       <div class="d-total-row">
         <span class="d-total-label">รวมทั้งหมด</span>
@@ -529,6 +556,37 @@ html,body{height:100%;font-family:var(--font);background:var(--bg);color:var(--t
     `;
 
     document.getElementById('dash-list').innerHTML = listHTML;
+  }
+
+  window.shareToLine = function() {
+    let emps = dashSel === 'ALL' ? [...dashAggregatedData] : dashAggregatedData.filter(e => e.branch.id === dashSel);
+    emps.sort((a,b) => b.calls - a.calls);
+
+    const tc = emps.reduce((s, e) => s + e.calls, 0);
+    const ta = emps.reduce((s, e) => s + (e.apps||0), 0);
+    
+    let branchName = dashSel === 'ALL' ? 'ทุกสาขารวมกัน' : BR.find(x => x.id === dashSel).label;
+    
+    let text = `📊 รายงานยอด: ${branchName}\n`;
+    text += `📅 ${dashStartDate} ถึง ${dashEndDate}\n`;
+    text += `👥 พนักงาน: ${emps.length} คน\n`;
+    text += `📞 รวมโทร: ${tc} สาย\n`;
+    text += `📝 รวมนัด: ${ta} นัด\n`;
+    text += `-------------------\n`;
+    text += `🏆 อันดับพนักงาน:\n`;
+    
+    if(emps.length === 0) {
+      text += `(ไม่มีข้อมูล)\n`;
+    } else {
+      emps.forEach((e, idx) => {
+        const name = e.name || '(ไม่ระบุชื่อ)';
+        text += `${idx + 1}. ${name} - โทร: ${e.calls} / นัด: ${e.apps}\n`;
+      });
+    }
+
+    const encodedText = encodeURIComponent(text);
+    const lineUrl = `https://line.me/R/msg/text/?${encodedText}`;
+    window.open(lineUrl, '_blank');
   }
 
   window.exportCSV = function() {
